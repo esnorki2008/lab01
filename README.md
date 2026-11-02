@@ -54,13 +54,13 @@ UI de Airflow: <http://localhost:8080> (acceso sin contraseña, modo laboratorio
 
 **No hay que hacer nada más.** Los DAGs se crean des-pausados y la secuencia ocurre sola:
 
-| DAG | Calendario | Qué hace |
-|---|---|---|
-| `favorita_source_system` | una vez | *Simula a la empresa*: con los archivos de Kaggle crea la **carga histórica** (`data/history`) y la **bandeja** (`data/inbox`), un archivo por fecha y fuente, con atrasos, entregas parciales, correcciones y archivos inválidos. |
-| `favorita_ingest` | diario | Carga histórica inicial (una vez) + ingesta y **validación** de lo entregado hasta la fecha. Lo válido va al lago (`data/lake`), lo inválido a cuarentena (`data/quarantine`). |
-| `favorita_weekly_forecast` | lunes | Espera la ingesta → prepara features (*as-of*) → reentrena/selecciona modelo cada 4 semanas → pronostica → pedido sugerido → **publica** → `dvc add`/`dvc push`. |
-| `favorita_monitoring` | diario | Compara todos los pronósticos publicados con las ventas reales conocidas a la fecha. |
-| `favorita_reprocess` | manual | Re-expresa un periodo con datos corregidos (sin tocar lo publicado). |
+| DAG                        | Calendario | Qué hace                                                                                                                                                                                                                           |
+| -------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `favorita_source_system`   | una vez    | _Simula a la empresa_: con los archivos de Kaggle crea la **carga histórica** (`data/history`) y la **bandeja** (`data/inbox`), un archivo por fecha y fuente, con atrasos, entregas parciales, correcciones y archivos inválidos. |
+| `favorita_ingest`          | diario     | Carga histórica inicial (una vez) + ingesta y **validación** de lo entregado hasta la fecha. Lo válido va al lago (`data/lake`), lo inválido a cuarentena (`data/quarantine`).                                                     |
+| `favorita_weekly_forecast` | lunes      | Espera la ingesta → prepara features (_as-of_) → reentrena/selecciona modelo cada 4 semanas → pronostica → pedido sugerido → **publica** → `dvc add`/`dvc push`.                                                                   |
+| `favorita_monitoring`      | diario     | Compara todos los pronósticos publicados con las ventas reales conocidas a la fecha.                                                                                                                                               |
+| `favorita_reprocess`       | manual     | Re-expresa un periodo con datos corregidos (sin tocar lo publicado).                                                                                                                                                               |
 
 Cuando `favorita_source_system` termina, el scheduler vuelve a leer los DAGs (≈30 s) y éstos quedan con
 calendario desde el primer día de la bandeja hasta la última entrega; con `catchup` Airflow recorre
@@ -68,19 +68,19 @@ todo el periodo automáticamente (≈ 26 semanas; 1–2 h según la máquina, ca
 
 ### Resultados (todo bajo `data/`, versionado con DVC)
 
-| Ruta | Contenido |
-|---|---|
-| `data/forecasts/cutoff=YYYY-MM-DD/forecast.parquet` | pronóstico por día, tienda, familia y cuantil |
-| `data/forecasts/cutoff=YYYY-MM-DD/orders.csv` | **pedido sugerido** (cantidad, nivel de servicio, costos, comparación con pedido ingenuo) |
-| `data/forecasts/cutoff=YYYY-MM-DD/metadata.json` | commit de código, hash de config, modelo (ruta + sha256), hash de resultados, chequeos de disponibilidad |
-| `data/forecasts/cutoff=YYYY-MM-DD/inputs_manifest.json` | cada archivo del lago usado, con su sha256 |
-| `data/forecasts/restated/...` | re-expresiones con datos corregidos (nunca reemplazan lo oficial) |
-| `data/monitoring/metrics_by_cutoff.csv` | WAPE, sesgo, pinball, cobertura 80%, calibración de cada cuantil (`cal_q10`…`cal_q90`), costo del pedido vs. pedido ingenuo, por corte |
-| `reports/monitoring_report.md` | reporte legible del seguimiento con alertas |
-| `models/registry.json` | historial champion/challenger: backtest de cada candidato y decisión |
-| `data/quarantine/` | archivos/filas rechazados y el motivo (`*.errors.json`) |
-| `data/lake/_runs/ingest_*.json` | resumen de cada ingesta (aceptados, rechazados, atrasos) |
-| `reports/source_system_anomalies.csv` | "verdad" de las anomalías inyectadas por el simulador (para auditar) |
+| Ruta                                                    | Contenido                                                                                                                              |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/forecasts/cutoff=YYYY-MM-DD/forecast.parquet`     | pronóstico por día, tienda, familia y cuantil                                                                                          |
+| `data/forecasts/cutoff=YYYY-MM-DD/orders.csv`           | **pedido sugerido** (cantidad, nivel de servicio, costos, comparación con pedido ingenuo)                                              |
+| `data/forecasts/cutoff=YYYY-MM-DD/metadata.json`        | commit de código, hash de config, modelo (ruta + sha256), hash de resultados, chequeos de disponibilidad                               |
+| `data/forecasts/cutoff=YYYY-MM-DD/inputs_manifest.json` | cada archivo del lago usado, con su sha256                                                                                             |
+| `data/forecasts/restated/...`                           | re-expresiones con datos corregidos (nunca reemplazan lo oficial)                                                                      |
+| `data/monitoring/metrics_by_cutoff.csv`                 | WAPE, sesgo, pinball, cobertura 80%, calibración de cada cuantil (`cal_q10`…`cal_q90`), costo del pedido vs. pedido ingenuo, por corte |
+| `reports/monitoring_report.md`                          | reporte legible del seguimiento con alertas                                                                                            |
+| `models/registry.json`                                  | historial champion/challenger: backtest de cada candidato y decisión                                                                   |
+| `data/quarantine/`                                      | archivos/filas rechazados y el motivo (`*.errors.json`)                                                                                |
+| `data/lake/_runs/ingest_*.json`                         | resumen de cada ingesta (aceptados, rechazados, atrasos)                                                                               |
+| `reports/source_system_anomalies.csv`                   | "verdad" de las anomalías inyectadas por el simulador (para auditar)                                                                   |
 
 ## 4. Periodo de evaluación / datos no publicados
 
@@ -124,7 +124,7 @@ dvc pull                                    # trae lago, modelos y pronósticos 
 python -m favorita reproduce --cutoff 2017-03-06   # recalcula y compara hashes -> "identical": true
 ```
 
-Como el lago es *append-only* y el pronóstico usa la vista *as-of* del corte, cualquier versión posterior
+Como el lago es _append-only_ y el pronóstico usa la vista _as-of_ del corte, cualquier versión posterior
 de los datos también reproduce los pronósticos antiguos.
 
 ## 6. Contrato de la bandeja (sistema de origen)
@@ -133,14 +133,14 @@ de los datos también reproduce los pronósticos antiguos.
 data/inbox/<fuente>/delivered=<fecha de entrega>/<fuente>_<fecha del dato>_v<versión>.csv
 ```
 
-| Fuente | Columnas | Llegada (config) |
-|---|---|---|
-| `sales` | date, store_nbr, family, sales | diaria, D+1 |
-| `transactions` | date, store_nbr, transactions | diaria, D+2 |
-| `oil` | date, dcoilwtico | días hábiles, D+1 |
-| `promotions` | date, store_nbr, family, onpromotion | plan, 14 días antes |
-| `holidays` | date, type, locale, locale_name, description, transferred | mensual, 30 días antes |
-| `stores` | store_nbr, city, state, type, cluster | maestro (opcional) |
+| Fuente         | Columnas                                                  | Llegada (config)       |
+| -------------- | --------------------------------------------------------- | ---------------------- |
+| `sales`        | date, store_nbr, family, sales                            | diaria, D+1            |
+| `transactions` | date, store_nbr, transactions                             | diaria, D+2            |
+| `oil`          | date, dcoilwtico                                          | días hábiles, D+1      |
+| `promotions`   | date, store_nbr, family, onpromotion                      | plan, 14 días antes    |
+| `holidays`     | date, type, locale, locale_name, description, transferred | mensual, 30 días antes |
+| `stores`       | store_nbr, city, state, type, cluster                     | maestro (opcional)     |
 
 Una versión mayor del mismo dato **reemplaza fila a fila** (por llave) a las anteriores desde el día en que
 llega: sirve tanto para entregas por partes como para correcciones.
@@ -174,8 +174,8 @@ python -m favorita simulate      # mismo flujo que Airflow, día por día
 ## 9. Flujo de trabajo Git
 
 - `main` protegida: requiere Pull Request y que pase el check **CI** (`.github/workflows/ci.yml`: ruff,
-  pytest y carga de DAGs en Airflow 3). Configuración: *Settings → Branches → Add rule → main →
-  Require a pull request before merging + Require status checks to pass (CI)*, o con `gh`:
+  pytest y carga de DAGs en Airflow 3). Configuración: _Settings → Branches → Add rule → main →
+  Require a pull request before merging + Require status checks to pass (CI)_, o con `gh`:
   ```bash
   gh api -X PUT repos/<owner>/lab01/branches/main/protection --input .github/branch-protection.json
   ```
@@ -193,3 +193,5 @@ docker/Dockerfile         imagen Airflow 3.1 + dependencias + DVC
 docker-compose.yaml       Airflow (api-server, scheduler, dag-processor, triggerer) + PostgreSQL
 dvc.yaml                  pipeline DVC (bandeja + backtest)
 ```
+
+#testing QA PR
