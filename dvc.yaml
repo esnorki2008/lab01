@@ -1,0 +1,37 @@
+# Pipeline reproducible fuera de Airflow (`dvc repro`).
+# Los artefactos que produce Airflow (lago, features, modelos, pronósticos,
+# monitoreo) se versionan con `dvc add` (ver README, sección DVC).
+stages:
+  source_system:
+    cmd: python -m favorita source-system --force
+    deps:
+      - data/store-sales-time-series-forecasting
+      - src/favorita/source_system.py
+    params:
+      - config/params.yaml:
+          - source_system
+    outs:
+      - data/history
+      - data/inbox
+      - reports/source_system_anomalies.csv:
+          cache: false
+
+  backtest:
+    cmd: python -m favorita backtest --out reports/backtest_metrics.json
+    deps:
+      - data/history
+      - data/inbox/_manifest.json
+      - src/favorita/features.py
+      - src/favorita/models.py
+      - src/favorita/training.py
+      - src/favorita/metrics.py
+      - src/favorita/ordering.py
+    params:
+      - config/params.yaml:
+          - forecast
+          - models
+          - model_selection
+          - business
+    metrics:
+      - reports/backtest_metrics.json:
+          cache: false

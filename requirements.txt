@@ -1,0 +1,7 @@
+# Dependencias del producto (se instalan también en la imagen de Airflow)
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==17.0.0
+lightgbm==4.5.0
+joblib==1.4.2
+PyYAML==6.0.2

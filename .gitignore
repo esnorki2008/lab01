@@ -1,0 +1,31 @@
+# --- Datos y modelos: NUNCA en Git (se versionan con DVC) ---
+/data/*
+!/data/*.dvc
+!/data/.gitignore
+/models
+/reports/*
+!/reports/backtest_metrics.json
+!/reports/source_system_anomalies.csv
+
+# --- Python / herramientas ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# --- Airflow / Docker ---
+logs/
+.airflow/
+.env
+simple_auth_manager_passwords.json.generated
+
+# --- SO / editores ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

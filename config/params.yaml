@@ -1,0 +1,120 @@
+# =============================================================================
+# Configuración versionada del producto. Cambiar este archivo cambia el
+# comportamiento (p. ej. el pedido sugerido) SIN tocar el código.
+# Todas las rutas son relativas a la raíz del proyecto (FAVORITA_ROOT).
+# =============================================================================
+
+paths:
+  kaggle_dir: data/store-sales-time-series-forecasting   # archivos de Kaggle (entrada)
+  history_dir: data/history        # carga histórica inicial (generada desde Kaggle)
+  inbox_dir: data/inbox            # bandeja del "sistema de origen" (solo lectura para el flujo)
+  lake_dir: data/lake              # datos aceptados, append-only, por fecha de entrega
+  quarantine_dir: data/quarantine  # archivos/filas rechazados por validación
+  processed_dir: data/processed    # features listos para el modelo
+  models_dir: models               # modelos entrenados + registro champion/challenger
+  forecasts_dir: data/forecasts    # pronósticos y pedidos publicados (inmutables)
+  monitoring_dir: data/monitoring  # seguimiento de desempeño
+  reports_dir: reports
+
+# -----------------------------------------------------------------------------
+# Simulación del sistema de origen (bandeja). Representa a la empresa, no al
+# producto: el flujo la lee pero nunca la modifica.
+# -----------------------------------------------------------------------------
+source_system:
+  # Primer día de la bandeja (= fin de la carga histórica). "auto" toma las
+  # últimas `inbox_days` del train.csv disponible, alineado a lunes. Así, si se
+  # colocan datos con un periodo nuevo, la bandeja cubre automáticamente ese periodo.
+  history_end: auto
+  inbox_days: 182
+  seed: 2017
+  # lag_days = fecha_entrega - fecha_del_dato. Negativo = llega con anticipación.
+  sources:
+    sales:        {lag_days: 1,   granularity: day}    # ventas del día D llegan en D+1
+    transactions: {lag_days: 2,   granularity: day}    # transacciones llegan en D+2
+    oil:          {lag_days: 1,   granularity: day}    # sólo días hábiles
+    promotions:   {lag_days: -14, granularity: day}    # plan de promociones, 14 días antes
+    holidays:     {lag_days: -30, granularity: month}  # calendario mensual, un mes antes
+  # Situaciones de operación real inyectadas en la bandeja (determinísticas por semilla)
+  anomalies:
+    enabled: true
+    partial_delivery_rate: 0.08    # ventas llegan en 2 partes (parte 2 un día después)
+    partial_missing_store_frac: 0.3
+    correction_rate: 0.06          # valores erróneos en v1, corregidos en v2
+    correction_lag_days: 5
+    correction_row_frac: 0.02
+    invalid_file_rate: 0.03        # v1 corrupto (se debe rechazar); v2 correcto llega después
+    invalid_fix_lag_days: 2
+    late_delivery_rate: 0.05       # archivo llega tarde
+    late_max_days: 3
+    duplicate_rows_rate: 0.05      # filas duplicadas idénticas dentro del archivo
+
+# -----------------------------------------------------------------------------
+# Validación de datos
+# -----------------------------------------------------------------------------
+validation:
+  max_bad_row_frac: 0.05     # si más filas que esto son inválidas -> se rechaza el archivo completo
+  max_sales_value: 1.0e+6    # ventas diarias por tienda-familia por encima de esto son inválidas
+  # Si las ventas más recientes conocidas tienen más días de atraso que esto, el
+  # pronóstico se detiene (incidente). Atrasos menores son situaciones esperadas.
+  max_sales_staleness_days: 7
+  min_series_coverage: 0.5   # fracción mínima de series con datos en los últimos 7 días
+
+# -----------------------------------------------------------------------------
+# Pronóstico
+# -----------------------------------------------------------------------------
+forecast:
+  cutoff_weekday: 0           # lunes
+  horizon_days: 14            # días T .. T+13
+  quantiles: [0.1, 0.25, 0.5, 0.75, 0.9]
+  train_window_days: 224      # ventana de fechas de corte usadas para entrenar
+  train_cutoff_stride_days: 7
+  retrain_every_weeks: 4
+
+models:
+  lgbm_quantile:
+    n_estimators: 250
+    learning_rate: 0.05
+    num_leaves: 63
+    min_child_samples: 40
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    num_threads: 4
+    seed: 7
+
+# -----------------------------------------------------------------------------
+# Validación temporal y criterio de reemplazo del modelo vigente
+# -----------------------------------------------------------------------------
+model_selection:
+  initial_champion: baseline
+  candidates: [baseline, lgbm_quantile]
+  backtest_folds: 4           # fechas de corte semanales; igual para todos los modelos
+  # Un challenger reemplaza al champion sólo si cumple TODO:
+  min_cost_improvement: 0.03  # costo de negocio >= 3% menor
+  max_wape_degradation: 0.05  # WAPE no empeora más de 5% relativo (guarda contra modelos que "ganan" sólo en costo)
+  coverage_tolerance: 0.10    # |cobertura del intervalo 10-90 - 0.80| <= 0.10
+  min_fold_win_rate: 0.5      # gana en costo en al menos la mitad de los folds
+
+# -----------------------------------------------------------------------------
+# Negocio: costos para el pedido sugerido (newsvendor)
+# cantidad = suma en la ventana de cobertura del cuantil cu/(cu+co) diario.
+# -----------------------------------------------------------------------------
+business:
+  lead_time_days: 2           # el pedido emitido en T llega en T+2
+  review_period_days: 7       # y debe cubrir la demanda de 7 días (T+2 .. T+8)
+  default_costs: {underage_cost: 1.0, overage_cost: 0.25}   # no perecibles
+  cost_groups:
+    perecibles:
+      underage_cost: 1.0
+      overage_cost: 0.9
+      families: [BREAD/BAKERY, DAIRY, DELI, EGGS, MEATS, POULTRY, PRODUCE, SEAFOOD, PREPARED FOODS]
+  family_overrides: {}        # p. ej. {"BEVERAGES": {underage_cost: 1.5, overage_cost: 0.2}}
+
+monitoring:
+  wape_alert_threshold: 0.35
+  coverage_alert_band: [0.65, 0.95]
+
+versioning:
+  dvc_auto_snapshot: true     # el DAG semanal ejecuta `dvc add` + `dvc push` al publicar
+  dvc_targets: [data/lake, data/processed, models, data/forecasts, data/monitoring]

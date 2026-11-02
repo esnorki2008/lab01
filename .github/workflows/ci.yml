@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Lint + pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check src dags tests
+      - name: Pytest
+        run: pytest -q
+
+  dag-integrity:
+    name: DAGs cargan en Airflow 3
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_VERSION: "3.1.3"
+      AIRFLOW_HOME: ${{ github.workspace }}/.airflow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar Airflow + producto
+        run: |
+          pip install "apache-airflow==${AIRFLOW_VERSION}" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-3.11.txt"
+          pip install -r requirements.txt pytest
+      - name: Validar DAGs
+        run: |
+          airflow db migrate
+          pytest -q tests/test_dags.py

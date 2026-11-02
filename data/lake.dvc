@@ -1,0 +1,6 @@
+outs:
+- md5: e660599d1f015607e2a94c915bfcf808.dir
+  size: 14001879
+  nfiles: 1563
+  hash: md5
+  path: lake

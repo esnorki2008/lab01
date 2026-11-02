@@ -1,0 +1,6 @@
+outs:
+- md5: 53330c0085ee4d351c56e940dc13efef.dir
+  size: 124761708
+  nfiles: 7
+  hash: md5
+  path: store-sales-time-series-forecasting

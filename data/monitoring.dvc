@@ -1,0 +1,6 @@
+outs:
+- md5: fa35dd4e6c67ba59f1489f8263ffe872.dir
+  size: 19833823
+  nfiles: 3
+  hash: md5
+  path: monitoring

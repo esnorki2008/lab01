@@ -1,0 +1,63 @@
+schema: '2.0'
+stages:
+  source_system:
+    cmd: python -m favorita source-system --force
+    deps:
+    - path: data/store-sales-time-series-forecasting
+      hash: md5
+      md5: 53330c0085ee4d351c56e940dc13efef.dir
+      size: 124761708
+      nfiles: 7
+    - path: src/favorita/source_system.py
+      hash: md5
+      md5: 9070e0447c78d4ef776a16e21474d887
+      size: 14792
+    params:
+      config/params.yaml:
+        source_system:
+          history_end: auto
+          inbox_days: 182
+          seed: 2017
+          sources:
+            sales:
+              lag_days: 1
+              granularity: day
+            transactions:
+              lag_days: 2
+              granularity: day
+            oil:
+              lag_days: 1
+              granularity: day
+            promotions:
+              lag_days: -14
+              granularity: day
+            holidays:
+              lag_days: -30
+              granularity: month
+          anomalies:
+            enabled: true
+            partial_delivery_rate: 0.08
+            partial_missing_store_frac: 0.3
+            correction_rate: 0.06
+            correction_lag_days: 5
+            correction_row_frac: 0.02
+            invalid_file_rate: 0.03
+            invalid_fix_lag_days: 2
+            late_delivery_rate: 0.05
+            late_max_days: 3
+            duplicate_rows_rate: 0.05
+    outs:
+    - path: data/history
+      hash: md5
+      md5: 7a53ba1a931e42620a68d8af70353360.dir
+      size: 9429123
+      nfiles: 6
+    - path: data/inbox
+      hash: md5
+      md5: 0eb0426cfc86518611353aa97b9ec3e8.dir
+      size: 18239472
+      nfiles: 693
+    - path: reports/source_system_anomalies.csv
+      hash: md5
+      md5: ebfb9d00238e312239cf772aa8aa3130
+      size: 12252
